@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Tracking Tool</title>
+  <!-- Import D3.js library from CDN for demonstration purposes -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <!-- Include your visualize.js script -->
+  <script type="module" src="./src/visualize.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    svg {
+      border: 1px solid #ddd;
+    }
+    
+  </style>
+</head>
+<body>
+  <h1>Crypto Tracking Tool</h1>
+  <!-- Container for the D3 visualization -->
+  <div id="visualization-container"></div>
+  <script type="module">
+    import { visualizeTrail } from './src/visualize.js';
+
+    // Example transaction trail data
+    const exampleTrail = [
+      '0x1234567890abcdef',
+      '0xabcdef1234567890',
+      '0x7890abcdef123456'
+    ];
+
+    // Call visualizeTrail function to create the visualization
+    visualizeTrail(exampleTrail);
+    console.log("visualize.js module loaded");
+
+  </script>
+</body>
+</html>
+
+
