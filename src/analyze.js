@@ -1,30 +1,42 @@
 import axios from 'axios';
 
-// Function to track the transaction trail
 export async function trackTransactionTrail(address, depth) {
   let transactions = [];
   let currentDepth = 0;
   let addressesToCheck = [address];
+  let seenAddresses = new Set([address]);
 
   while (addressesToCheck.length > 0 && currentDepth < depth) {
-    const address = addressesToCheck.shift();
+    const currentAddress = addressesToCheck.shift();
     try {
-      const data = await fetchTransactions(address);
-      if (!data || !data.transactions) {
-        console.error(`Unexpected data format for address ${address}`);
+      const data = await fetchTransactions(currentAddress);
+      if (!data || !data.result) {
+        console.error(`Unexpected data format for address ${currentAddress}`);
         continue;
       }
-      const newAddresses = data.transactions.map(tx => tx.to); // Adjust based on API response
-      addressesToCheck.push(...newAddresses);
-      transactions.push(...data.transactions);
+      
+      for (const tx of data.result) {
+        if (!seenAddresses.has(tx.to)) {
+          addressesToCheck.push(tx.to);
+          seenAddresses.add(tx.to);
+        }
+        transactions.push({
+          from: tx.from,
+          to: tx.to,
+          value: tx.value,
+          hash: tx.hash
+        });
+      }
     } catch (error) {
-      console.error(`Error fetching transactions for address ${address}:`, error);
+      console.error(`Error fetching transactions for address ${currentAddress}:`, error);
     }
     currentDepth++;
   }
 
   return transactions;
 }
+
+// ... rest of the code remains unchanged ...
 
 // Function to fetch transactions from the API
 async function fetchTransactions(address) {
