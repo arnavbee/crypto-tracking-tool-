@@ -9,70 +9,102 @@
     <style>
         body {
             font-family: 'Roboto', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            background-color: #f0f0f0;
-            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
         }
         h1 {
-            color: #2c3e50;
-            margin-bottom: 30px;
+            color: #61dafb;
+            text-align: center;
+            padding: 20px 0;
+            margin: 0;
+            background-color: #1a1a1a;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        #main-container {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            height: calc(100vh - 100px);
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
         #visualization-container { 
             width: 100%;
-            max-width: 800px;
-            margin: 20px 0;
+            height: calc(100% - 150px);
+            margin-top: 20px;
         }
         #timeSlider { 
             width: 100%;
-            max-width: 800px;
             margin: 20px 0;
+            -webkit-appearance: none;
+            background: #444;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        #timeSlider:hover {
+            opacity: 1;
+        }
+        #timeSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #61dafb;
+            cursor: pointer;
+            border-radius: 50%;
         }
         input, button {
             margin: 10px;
             padding: 10px;
             font-size: 16px;
             border-radius: 5px;
-            border: 1px solid #ccc;
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
         }
         button {
-            background-color: #3498db;
-            color: white;
+            background-color: #61dafb;
+            color: #1a1a1a;
             border: none;
             cursor: pointer;
             transition: background-color 0.3s;
         }
         button:hover {
-            background-color: #2980b9;
+            background-color: #4fa8d5;
         }
         #transactionDetails { 
-            position: fixed; 
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: white; 
-            border: 1px solid black; 
-            padding: 10px; 
-            display: none;
-            max-height: 80vh;
-            max-width: 80vw;
-            width: 400px;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: #2a2a2a; 
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 20px;
             border-radius: 10px;
-        }
-        #closeDetails {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-            font-size: 20px;
+            max-width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+            z-index: 2000;
+            display: none;
         }
         .transaction-link {
-            color: #3498db;
+            color: #61dafb;
             text-decoration: none;
         }
         .transaction-link:hover {
@@ -83,25 +115,30 @@
 <body>
     <h1>Crypto Tracking Tool</h1>
     
-    <div>
-        <input type="text" id="addressInput" placeholder="Enter Ethereum address">
-        <button id="trackButton">Track Address</button>
+    <div id="main-container">
+        <div>
+            <input type="text" id="addressInput" placeholder="Enter Ethereum address">
+            <button id="trackButton">Track Address</button>
+        </div>
+
+        <div>
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
+            <button id="filterButton">Filter by Date</button>
+        </div>
+        <input type="range" id="timeSlider" min="0" max="100" value="100">
+        <div id="visualization-container"></div>
     </div>
 
-    <div>
-        <input type="date" id="startDate">
-        <input type="date" id="endDate">
-        <button id="filterButton">Filter by Date</button>
-    </div>
-    <input type="range" id="timeSlider" min="0" max="100" value="100">
     <div id="transactionDetails">
         <span id="closeDetails">&times;</span>
         <div id="detailsContent"></div>
     </div>
-    <div id="visualization-container"></div>
 
     <script>
         const API_KEY = 'VIZPYJ1P5MZEKPFX9KFQV8TKB949ZN2YZT';
+        let allTransactions = [];
+        let filteredTransactions = [];
 
         function weiToEther(wei) {
             return wei / 1e18;
@@ -109,34 +146,60 @@
 
         async function fetchTransactions(address) {
             try {
-                const response = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=100&sort=desc&apikey=${API_KEY}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                
-                console.log('API Response:', data); // Log the full API response
+                let page = 1;
+                let hasMoreTransactions = true;
 
-                if (data.status === '1' && data.result.length > 0) {
-                    allTransactions = data.result.map(tx => ({
-                        from: tx.from,
-                        to: tx.to,
-                        hash: tx.hash,
-                        value: weiToEther(parseFloat(tx.value)),
-                        timestamp: new Date(tx.timeStamp * 1000)
-                    }));
+                while (hasMoreTransactions) {
+                    const response = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=10000&sort=asc&apikey=${API_KEY}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
                     
-                    console.log('Fetched transactions:', allTransactions);
-                    
-                    visualizeTrail(allTransactions, address);
-                } else {
-                    console.error('API Response Error:', data.message || 'Unknown error');
-                    alert(`No transactions found or error in API response: ${data.message || 'Unknown error'}`);
+                    if (data.status === '1' && data.result.length > 0) {
+                        const newTransactions = data.result.map(tx => ({
+                            from: tx.from,
+                            to: tx.to,
+                            hash: tx.hash,
+                            value: weiToEther(parseFloat(tx.value)),
+                            timestamp: new Date(tx.timeStamp * 1000)
+                        }));
+                        
+                        allTransactions = allTransactions.concat(newTransactions);
+                        filteredTransactions = allTransactions;
+                        
+                        if (data.result.length < 10000) {
+                            hasMoreTransactions = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMoreTransactions = false;
+                    }
                 }
+                
+                console.log(`Fetched ${allTransactions.length} transactions`);
+                updateVisualization();
             } catch (error) {
                 console.error('Error fetching transactions:', error);
                 alert(`Error fetching transactions: ${error.message}`);
             }
+        }
+
+        function updateVisualization() {
+            visualizeTrail(filteredTransactions, document.getElementById('addressInput').value);
+        }
+
+        function filterTransactionsByTime(percentage) {
+            if (allTransactions.length === 0) return;
+
+            const startTimestamp = allTransactions[0].timestamp.getTime();
+            const endTimestamp = allTransactions[allTransactions.length - 1].timestamp.getTime();
+            const range = endTimestamp - startTimestamp;
+            const cutoffTimestamp = startTimestamp + (range * (percentage / 100));
+
+            filteredTransactions = allTransactions.filter(t => t.timestamp.getTime() <= cutoffTimestamp);
+            updateVisualization();
         }
 
         function visualizeTrail(transactions, centerAddress) {
@@ -151,7 +214,7 @@
             const svg = d3.select('#visualization-container').append('svg')
                 .attr('width', width)
                 .attr('height', height)
-                .style('border', '1px solid black');
+                .style('background-color', '#2a2a2a');
 
             // Create nodes for unique addresses
             const nodes = Array.from(new Set(transactions.flatMap(t => [t.from, t.to])))
@@ -193,7 +256,7 @@
                     const totalValue = nodeTransactions.reduce((sum, t) => sum + t.value, 0);
                     return Math.max(5, Math.min(20, Math.log(totalValue + 1) * 2));
                 })
-                .attr('fill', d => d.group === 1 ? '#ff0000' : '#00f')
+                .attr('fill', d => d.group === 1 ? '#61dafb' : '#e0e0e0')
                 .on('click', function(event, d) {
                     showTransactionDetails(d, event);
                 })
@@ -212,7 +275,8 @@
                 .text(d => d.id.slice(0, 6) + '...')
                 .attr('font-size', 10)
                 .attr('dx', 12)
-                .attr('dy', 4);
+                .attr('dy', 4)
+                .attr('fill', '#e0e0e0');
 
             // Update positions on each tick of the simulation
             simulation.on('tick', () => {
@@ -233,7 +297,10 @@
         }
 
         function showTransactionDetails(node, event) {
-            const nodeTransactions = allTransactions.filter(t => t.from.toLowerCase() === node.id.toLowerCase() || t.to.toLowerCase() === node.id.toLowerCase());
+            const nodeTransactions = filteredTransactions.filter(t => 
+                t.from.toLowerCase() === node.id.toLowerCase() || 
+                t.to.toLowerCase() === node.id.toLowerCase()
+            );
             const detailsContent = document.getElementById('detailsContent');
             
             let transactionList = nodeTransactions.slice(0, 10).map(t => `
@@ -256,7 +323,10 @@
                 <ul>${transactionList}</ul>
             `;
             
-            document.getElementById('transactionDetails').style.display = 'block';
+            const detailsDiv = document.getElementById('transactionDetails');
+            detailsDiv.style.display = 'block';
+            detailsDiv.style.left = `${event.pageX}px`;
+            detailsDiv.style.top = `${event.pageY}px`;
         }
 
         document.getElementById('closeDetails').addEventListener('click', () => {
@@ -283,7 +353,7 @@
 
         document.getElementById('timeSlider').addEventListener('input', (event) => {
             const percentage = event.target.value;
-            console.log(`Slider value: ${percentage}`);
+            filterTransactionsByTime(percentage);
         });
     </script>
 </body>
